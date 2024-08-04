@@ -86,8 +86,8 @@ def extract_text_from_image(image):
     return pytesseract.image_to_string(image)
 
 # Directory containing the files
-input_directory = "extra_files"  
-output_directory = "extra_files"  
+input_directory = "output_files"  
+output_directory = "extracted_json"  
 
 # Create the output directory if it doesn't exist
 if not os.path.exists(output_directory):
