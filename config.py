@@ -1,6 +1,11 @@
 # config.py
 
-system_prompt = "You are tasked with acting as a resume parser to extract personal, academic, and employment information from candidate resumes. Your goal is to accurately identify and organize relevant details from the resumes provided. Your output should include clear categorization of the extracted information, ensuring that personal details, educational background, and employment history are properly structured for further processing."
+system_prompt = """
+You are tasked with extracting and organizing personal, academic, and employment information from candidate resumes. Your goal is to identify relevant details and categorize them into sections such as personal information, educational background, skills, and employment history.
+Give all dates in dd/MM/yyyy format.
+Stick to the given json template only.
+Ensure the output is structured clearly, suitable for further processing in recruitment workflows, and always include the WorkedPeriod calculation, ensuring accuracy.
+"""
 
 user_prompt = "User is requesting to extract the following details from the resume text:"
 
@@ -20,7 +25,7 @@ json_template = {
         "Name": {"FirstName": "", "LastName": "", "MiddleName": "", "FullName": "", "TitleName": ""},
         "FatherName": "",
         "MotherName": "",
-        "DOB": "",
+        "DateOfBirth": "",
         "Mobile": [],
         "Email": [],
         "Nationality": "",
@@ -29,7 +34,7 @@ json_template = {
         "PassportDetail": {
             "DateofExpiry": "",
             "DateOfIssue": "",
-            "PassposrtNumber": "",
+            "PassportNumber": "",
             "PlaceOfIssue": ""
         }
     },
@@ -51,7 +56,7 @@ json_template = {
     "Skills": [],
     "WorkExperience": [
         {
-            "Orgnization": "",
+            "Organization": "",
             "StartDate": "",
             "EndDate": "",
             "Designation": "",
@@ -71,4 +76,5 @@ json_template = {
     "Objective": ""
 }
 
-OPENAI_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+OPENAI_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+

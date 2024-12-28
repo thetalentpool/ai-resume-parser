@@ -138,19 +138,19 @@ Command-Line Arguments
 ## Example Commands
 1.Overwrite all files:
 ```bash
-python resume_parser.py --write-all
+python main.py --write-all
 ```
 
 2. Write only new files:
 
 ```bash
-python resume_parser.py --write-new
+python main.py --write-new
 ```
 
 3. Default behavior (skip existing files):
 
 ```bash
-python resume_parser.py
+python main.py
 ```
 
 ## How It Works
