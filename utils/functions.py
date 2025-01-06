@@ -7,6 +7,9 @@ import base64
 import openai
 from PIL import Image
 from io import BytesIO
+import fitz  # PyMuPDF
+import io
+from zipfile import ZipFile
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 
 
@@ -110,26 +113,34 @@ class FileProcessor:
         output_filepath = os.path.join(self.output_directory, output_filename)
         if os.path.exists(output_filepath) and not self.args.write_all:
             logging.info(f"File already exists: {output_filepath}")
-            return
-        with open(output_filepath, "w") as json_file:
+            return output_filepath
+        
+        with open(output_filepath, "w",encoding="utf-8") as json_file:
             json_file.write(extracted_text)
             json_file.write("\n")
 
         logging.info(f"Successfully extracted information from {filename}")
+        return output_filepath
 
     # Process PDF files
     def process_pdf_files(self, pdf_files):
+
         for pdf_file in pdf_files:
             pdf_file_path = os.path.join(self.input_directory, pdf_file)
+
             try:
                 pdf_loader = PyPDFLoader(pdf_file_path)
                 pdf_text = "".join(page.page_content for page in pdf_loader.load())
+
+                # Check if extracted text is empty
                 if not pdf_text.strip():
-                    logging.warning(f"Fallback to GPT-4 for {pdf_file}: Empty extracted text.")
-                    images = self.convert_pdf_to_images(pdf_file_path)
-                    for image in images:
-                        base64_image = self.encode_image_to_base64(image)
-                        pdf_text += self.client.call_gpt4o(base64_image, "Extract text from this image")
+                    logging.warning(f"Empty text extracted from {pdf_file}, processing images instead.")
+                    combined_image_path = self.extract_and_combine_images(pdf_file_path)
+                    
+                    # Process combined image
+                    if combined_image_path and os.path.exists(combined_image_path):
+                        base64_image = self.encode_image_to_base64(combined_image_path)
+                        pdf_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image")
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, 
@@ -139,6 +150,7 @@ class FileProcessor:
                 )
 
                 self.write_output_file(pdf_file, resume_info)
+                #processed_files.add(pdf_file)
             except Exception as e:
                 logging.error(f"Error processing PDF {pdf_file}: {str(e)}")
 
@@ -149,6 +161,15 @@ class FileProcessor:
             try:
                 docx_loader = Docx2txtLoader(docx_file_path)
                 docx_text = "".join(page.page_content for page in docx_loader.load())
+
+                if not docx_text.strip():
+                    logging.warning(f"Empty text extracted from {docx_file}, processing images instead.")
+                    combined_image_path = self.extract_and_combine_images_from_docx(docx_file_path)
+
+                    # Process combined image if it exists
+                    if combined_image_path and os.path.exists(combined_image_path):
+                        base64_image = self.encode_image_to_base64(combined_image_path)
+                        docx_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image")
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, 
@@ -175,3 +196,101 @@ class FileProcessor:
                 )
                 self.write_output_file(image_file, resume_info)
 
+
+    def extract_and_combine_images(self, pdf_path):
+        # Extract the base name of the PDF (without extension)
+        base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+        input_dir = os.path.dirname(pdf_path)  # Directory where the PDF is located
+        output_path = os.path.join(input_dir, f"{base_name}.jpg")
+
+        if os.path.exists(output_path):
+            logging.info(f"Combined image already exists for {pdf_path}: {output_path}")
+            return output_path  # Return the path of the existing combined image
+        
+        # Open the PDF
+        pdf = fitz.open(pdf_path)
+        all_images = []  # List to store extracted images
+
+        for page_number in range(len(pdf)):
+            page = pdf[page_number]
+            images = page.get_images(full=True)
+
+            for img_index, img in enumerate(images):
+                xref = img[0]
+                base_image = pdf.extract_image(xref)
+                image_bytes = base_image["image"]
+
+                # Convert image bytes to PIL Image object
+                image = Image.open(io.BytesIO(image_bytes))
+                all_images.append(image)
+
+        # Combine all images into one
+        if all_images:
+            # Determine the size of the combined image
+            widths, heights = zip(*(img.size for img in all_images))
+            total_width = max(widths)
+            total_height = sum(heights)
+
+            # Create a blank canvas
+            combined_image = Image.new("RGB", (total_width, total_height))
+
+            # Paste images on the canvas
+            y_offset = 0
+            for img in all_images:
+                combined_image.paste(img, (0, y_offset))
+                y_offset += img.height
+
+            # Save the combined image in the same directory as the input PDF
+            output_path = os.path.join(input_dir, f"{base_name}.jpg")
+            combined_image.save(output_path)
+            print(f"Combined image saved at: {output_path}")
+            return output_path  # Return the path of the combined image
+        else:
+            print(f"No images found in {pdf_path}.")
+            return None
+
+    def extract_and_combine_images_from_docx(self, docx_path):
+        # Extract the base name of the DOCX (without extension)
+        base_name = os.path.splitext(os.path.basename(docx_path))[0]
+        input_dir = os.path.dirname(docx_path)  # Directory where the DOCX is located
+        output_path = os.path.join(input_dir, f"{base_name}.jpg")
+        
+        # Check if combined image already exists
+        if os.path.exists(output_path):
+            logging.info(f"Combined image already exists for {docx_path}: {output_path}")
+            return output_path  # Return the path of the existing combined image
+
+        # Open the DOCX file as a zip archive
+        with ZipFile(docx_path, 'r') as docx_zip:
+            image_files = [f for f in docx_zip.namelist() if f.startswith('word/media/')]
+            
+            # Extract all images
+            all_images = []
+            for image_file in image_files:
+                image_data = docx_zip.read(image_file)
+                image = Image.open(BytesIO(image_data))
+                all_images.append(image)
+
+        # Combine all images into one
+        if all_images:
+            # Determine the size of the combined image
+            widths, heights = zip(*(img.size for img in all_images))
+            total_width = max(widths)
+            total_height = sum(heights)
+
+            # Create a blank canvas
+            combined_image = Image.new("RGB", (total_width, total_height))
+
+            # Paste images on the canvas
+            y_offset = 0
+            for img in all_images:
+                combined_image.paste(img, (0, y_offset))
+                y_offset += img.height
+
+            # Save the combined image in the same directory as the input DOCX
+            combined_image.save(output_path)
+            logging.info(f"Combined image saved at: {output_path}")
+            return output_path  # Return the path of the combined image
+        else:
+            logging.warning(f"No images found in {docx_path}.")
+            return None
