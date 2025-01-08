@@ -4,11 +4,11 @@ from utils.functions import OpenAIClient,FileProcessor
 from log_helper import setup_logging
 from config import system_prompt, user_prompt, json_template,OPENAI_API_KEY
 
-import ssl
-import certifi
+# import ssl
+# import certifi
 
-ssl._create_default_https_context = ssl.create_default_context
-ssl._create_default_https_context().load_verify_locations(certifi.where())
+# ssl._create_default_https_context = ssl.create_default_context
+# ssl._create_default_https_context().load_verify_locations(certifi.where())
 
 # Set up logging
 setup_logging()
