@@ -32,18 +32,14 @@ class OpenAIClient:
             "Authorization": f"Bearer {self.api_key}"
         }
         data = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-3.5-turbo",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"{user_prompt}\n{json_template}\n{resume_text}\nPlease respond in valid JSON format according to the given template."}
             ]
         }
 
-        # print('urllllllll',url)
-        # print('headersssssss',headers)
-        # print('dataaaaaaaa',data)
         response = requests.post(url, headers=headers, json=data, verify=False)
-        print(response)
         logging.info(f"Extracted resume info in {time.time() - start_time:.2f} seconds.")
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content']
@@ -51,15 +47,16 @@ class OpenAIClient:
             logging.error(f"Error extracting resume info: {response.status_code}, {response.text}")
             return None
 
-    def call_gpt4o(self, base64_image, question):
+
+    def call_gpt4o(self, base64_image, user_prompt, json_template):
         start_time = time.time()
         response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": question},
+                        {"type": "text", "text": f"{user_prompt}\n{json_template}\nPlease respond in valid JSON format according to the given template."},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }
@@ -107,7 +104,7 @@ class FileProcessor:
             return None
 
     # File processing function for images
-    def process_image_file(self, image_file_path):
+    def process_image_file(self, image_file_path,json_template):
         start_time = time.time()
         try:
             if not os.path.exists(image_file_path):
@@ -116,7 +113,7 @@ class FileProcessor:
 
             base64_image = self.encode_image_to_base64(image_file_path)
             if base64_image:
-                extracted_text = self.client.call_gpt4o(base64_image, "Extract text from this image")
+                extracted_text = self.client.call_gpt4o(base64_image, "Extract text from this image",json_template)
                 logging.info(f"Processed image file in {time.time() - start_time:.2f} seconds.")
                 return extracted_text
             else:
@@ -156,13 +153,13 @@ class FileProcessor:
 
                 # Check if extracted text is empty
                 if not pdf_text.strip():
-                    logging.warning(f"Empty text extracted from {pdf_file}, processing images instead.")
+                    logging.warning(f"Empty text extracted from {pdf_file}, processing images instead.,")
                     combined_image_path = self.extract_and_combine_images(pdf_file_path)
                     
                     # Process combined image
                     if combined_image_path and os.path.exists(combined_image_path):
                         base64_image = self.encode_image_to_base64(combined_image_path)
-                        pdf_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image")
+                        pdf_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image",self.json_template)
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, 
@@ -194,7 +191,7 @@ class FileProcessor:
                     # Process combined image if it exists
                     if combined_image_path and os.path.exists(combined_image_path):
                         base64_image = self.encode_image_to_base64(combined_image_path)
-                        docx_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image")
+                        docx_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image",self.json_template)
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, 
@@ -214,15 +211,9 @@ class FileProcessor:
         for image_file in image_files:
             start_time = time.time()
             image_file_path = os.path.join(self.input_directory, image_file)
-            extracted_text = self.process_image_file(image_file_path)
-            if extracted_text:
-                resume_info = self.client.extract_resume_info(
-                    self.system_prompt, 
-                    self.user_prompt, 
-                    self.json_template, 
-                    extracted_text
-                )
-                self.write_output_file(image_file, resume_info)
+            extracted_info = self.process_image_file(image_file_path, self.json_template)  # No separate call to extract_resume_info
+            if extracted_info:
+                self.write_output_file(image_file, extracted_info)
                 logging.info(f"Processed image file {image_file} in {time.time() - start_time:.2f} seconds.")
 
 
