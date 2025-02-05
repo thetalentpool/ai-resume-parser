@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import requests
 import pdfplumber
@@ -10,6 +9,8 @@ from PIL import Image
 from io import BytesIO
 import fitz  # PyMuPDF
 import io
+import subprocess
+from win32com.client import Dispatch
 from zipfile import ZipFile
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 
@@ -123,21 +124,40 @@ class FileProcessor:
             logging.error(f"Error processing image file {image_file_path}: {str(e)}")
             return None
 
-    # Write output to file
     def write_output_file(self, filename, extracted_text):
+        """Writes extracted text to a JSON file, handling --write-all and --write-new flags."""
         start_time = time.time()
+        
+        # Construct output file path
         output_filename = os.path.splitext(filename)[0] + "_extracted_info.json"
         output_filepath = os.path.join(self.output_directory, output_filename)
-        if os.path.exists(output_filepath) and not self.args.write_all:
-            logging.info(f"File already exists: {output_filepath}")
-            return output_filepath
-        
-        with open(output_filepath, "w",encoding="utf-8") as json_file:
-            json_file.write(extracted_text)
-            json_file.write("\n")
 
-        logging.info(f"Successfully extracted information from {filename}")
-        logging.info(f"Wrote output file in {time.time() - start_time:.2f} seconds.")
+        # Check if file exists
+        file_exists = os.path.exists(output_filepath)
+
+        # Handle --write-all and --write-new flags
+        if file_exists and not self.args.write_all:
+            if self.args.write_new:
+                logging.info(f"Skipping existing file: {output_filepath}")
+                return None  # Skip processing if file already exists and --write-new is set
+            else:
+                logging.info(f"File already exists: {output_filepath}")
+                return output_filepath  # Return existing file path
+
+        # Write extracted text to JSON file
+        try:
+            with open(output_filepath, "w", encoding="utf-8") as json_file:
+                #json.dump(extracted_text, f, ensure_ascii=False, indent=4)
+                 json_file.write(extracted_text)
+                 json_file.write("\n")
+            logging.info(f"Successfully written to: {output_filepath}")
+        except Exception as e:
+            logging.error(f"Failed to write file {output_filepath}: {e}")
+            return None
+
+        end_time = time.time()
+        logging.info(f"Time taken to write file: {end_time - start_time:.2f} seconds")
+
         return output_filepath
 
     # Process PDF files
@@ -320,3 +340,76 @@ class FileProcessor:
         else:
             logging.warning(f"No images found in {docx_path}.")
             return None
+        
+
+    def convert_doc_to_docx(self,doc_path):
+        """ Convert a .doc file to .docx using MS Word (Windows) or LibreOffice (Linux/Mac). """
+        if not os.path.exists(doc_path):
+            print(f"ERROR: File not found: {doc_path}")
+            return None
+
+        docx_path = doc_path.replace(".doc", ".docx")
+
+        if os.name == "nt":  # Windows
+            try:
+                print(f" Converting {doc_path} to {docx_path} using MS Word...")
+                word = Dispatch("Word.Application")
+                word.Visible = False  # Background execution
+                doc = word.Documents.Open(os.path.abspath(doc_path))
+                doc.SaveAs(os.path.abspath(docx_path), FileFormat=16)  # Convert to .docx
+                doc.Close()
+                word.Quit()
+                print(f"Conversion successful: {docx_path}")
+                return docx_path
+            except Exception as e:
+                print(f"ERROR: Failed to convert {doc_path} - {e}")
+                return None
+            
+        elif os.name == "posix":  # Linux/macOS
+            try:
+                print(f" Converting {doc_path} using LibreOffice...")
+                subprocess.run(["libreoffice", "--headless", "--convert-to", "docx", doc_path], check=True)
+                return docx_path if os.path.exists(docx_path) else None
+            except Exception as e:
+                print(f"ERROR: LibreOffice conversion failed for {doc_path} - {e}")
+                return None
+        else:
+            print(f"Unsupported OS: {os.name}")
+
+
+        
+    def process_doc_files(self, doc_files):
+        for doc_file in doc_files:
+            start_time = time.time()
+            doc_file_path = os.path.join(self.input_directory, doc_file)
+
+            # Convert .doc to .docx
+            docx_file_path = self.convert_doc_to_docx(doc_file_path)
+            if not docx_file_path:
+                logging.error(f"Skipping {doc_file} due to conversion failure.")
+                continue  # Skip processing if conversion fails
+
+            try:
+                # Process converted .docx file
+                docx_loader = Docx2txtLoader(docx_file_path)
+                doc_text = "".join(page.page_content for page in docx_loader.load())
+
+                if not doc_text.strip():
+                    logging.warning(f"Empty text extracted from {doc_file}, processing images instead.")
+                    combined_image_path = self.extract_and_combine_images_from_docx(docx_file_path)
+
+                    # Process extracted images
+                    if combined_image_path and os.path.exists(combined_image_path):
+                        base64_image = self.encode_image_to_base64(combined_image_path)
+                        doc_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image", self.json_template)
+
+                resume_info = self.client.extract_resume_info(
+                    self.system_prompt, self.user_prompt, self.json_template, doc_text
+                )
+
+                self.write_output_file(doc_file, resume_info)
+                logging.info(f"Processed DOC file {doc_file} in {time.time() - start_time:.2f} seconds.")
+
+            except Exception as e:
+                logging.error(f"Error processing DOC {doc_file}: {str(e)}")
+    

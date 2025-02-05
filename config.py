@@ -113,5 +113,5 @@ json_template = {
     ]
 }
 
-OPENAI_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+OPENAI_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 
