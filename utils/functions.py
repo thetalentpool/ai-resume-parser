@@ -10,10 +10,15 @@ from io import BytesIO
 import fitz  # PyMuPDF
 import io
 import subprocess
-from win32com.client import Dispatch
 from zipfile import ZipFile
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+import platform
 
+if platform.system() == "Windows":
+    try:
+        from win32com.client import Dispatch
+    except ImportError:
+        print("pywin32 is not installed. Install it using: pip install pywin32")
 
 class OpenAIClient:
     def __init__(self, api_key):
@@ -49,21 +54,23 @@ class OpenAIClient:
             return None
 
 
-    def call_gpt4o(self, base64_image, user_prompt, json_template):
+    def call_gpt4o(self, base64_image, user_prompt, json_template,system_prompt):
         start_time = time.time()
         response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": f"{user_prompt}\n{json_template}\nPlease respond in valid JSON format according to the given template."},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                    ]
-                }
-            ],
-            max_tokens=300,
-        )
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"{user_prompt}\n{json_template}\nPlease respond in valid JSON format according to the given template."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ]
+            }
+        ],
+        max_tokens=4096
+
+    )
         logging.info(f"Called GPT-4o in {time.time() - start_time:.2f} seconds.")
         return response.choices[0].message.content
 
@@ -114,7 +121,7 @@ class FileProcessor:
 
             base64_image = self.encode_image_to_base64(image_file_path)
             if base64_image:
-                extracted_text = self.client.call_gpt4o(base64_image, "Extract text from this image",json_template)
+                extracted_text = self.client.call_gpt4o(base64_image, "Extract text from this image",json_template,self.system_prompt)
                 logging.info(f"Processed image file in {time.time() - start_time:.2f} seconds.")
                 return extracted_text
             else:
@@ -179,7 +186,7 @@ class FileProcessor:
                     # Process combined image
                     if combined_image_path and os.path.exists(combined_image_path):
                         base64_image = self.encode_image_to_base64(combined_image_path)
-                        pdf_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image",self.json_template)
+                        pdf_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image",self.json_template,self.system_prompt)
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, 
@@ -211,7 +218,7 @@ class FileProcessor:
                     # Process combined image if it exists
                     if combined_image_path and os.path.exists(combined_image_path):
                         base64_image = self.encode_image_to_base64(combined_image_path)
-                        docx_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image",self.json_template)
+                        docx_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image",self.json_template,self.system_prompt)
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, 
@@ -401,7 +408,7 @@ class FileProcessor:
                     # Process extracted images
                     if combined_image_path and os.path.exists(combined_image_path):
                         base64_image = self.encode_image_to_base64(combined_image_path)
-                        doc_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image", self.json_template)
+                        doc_text = self.client.call_gpt4o(base64_image, "Extract text from this combined image", self.json_template,self.system_prompt)
 
                 resume_info = self.client.extract_resume_info(
                     self.system_prompt, self.user_prompt, self.json_template, doc_text
