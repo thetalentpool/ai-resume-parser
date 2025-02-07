@@ -349,14 +349,15 @@ class FileProcessor:
             return None
         
 
-    def convert_doc_to_docx(self,doc_path):
+    def convert_doc_to_docx(self, doc_path):
         """ Convert a .doc file to .docx using MS Word (Windows) or LibreOffice (Linux/Mac). """
         if not os.path.exists(doc_path):
             print(f"ERROR: File not found: {doc_path}")
             return None
 
-        docx_path = doc_path.replace(".doc", ".docx")
-
+        # Extract the directory of the .doc file and construct the .docx file path in the same directory
+        doc_dir = os.path.dirname(doc_path)
+        docx_path = os.path.join(doc_dir, os.path.basename(doc_path).replace(".doc", ".docx"))
         if os.name == "nt":  # Windows
             try:
                 print(f" Converting {doc_path} to {docx_path} using MS Word...")
@@ -371,7 +372,7 @@ class FileProcessor:
             except Exception as e:
                 print(f"ERROR: Failed to convert {doc_path} - {e}")
                 return None
-            
+                
         elif os.name == "posix":  # Linux/macOS
             try:
                 print(f" Converting {doc_path} using LibreOffice...")
@@ -383,8 +384,7 @@ class FileProcessor:
         else:
             print(f"Unsupported OS: {os.name}")
 
-
-        
+  
     def process_doc_files(self, doc_files):
         for doc_file in doc_files:
             start_time = time.time()
