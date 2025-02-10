@@ -2,7 +2,7 @@
 
 system_prompt = """
 You are tasked with extracting and organizing personal, academic, and employment information from candidate resumes. Your goal is to identify relevant details and categorize them into sections such as personal information, educational background, skills, and employment history.
-Give all dates in dd/MM/yyyy format.
+Give all dates in dd/MM/yyyy format, especially the StartDate and EndDate fields of Academics and WorkExperience.
 Stick to the given json template only.
 Provide the output as valid JSON. Do not include any markdown formatting, such as triple backticks or other extra characters. Respond with only the JSON content.
 """
