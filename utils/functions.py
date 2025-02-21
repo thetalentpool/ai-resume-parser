@@ -30,7 +30,7 @@ class OpenAIClient:
         logging.info(f"Initialized OpenAIClient in {time.time() - start_time:.2f} seconds.")
 
 
-    def extract_resume_info(self, system_prompt, user_prompt, json_template, resume_text):
+    def extract_resume_info_old(self, system_prompt, user_prompt, json_template, resume_text):
         start_time = time.time()
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
@@ -38,11 +38,40 @@ class OpenAIClient:
             "Authorization": f"Bearer {self.api_key}"
         }
         data = {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4o-mini",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"{user_prompt}\n{json_template}\n{resume_text}\nPlease respond in valid JSON format according to the given template."}
             ]
+        }
+
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        logging.info(f"Extracted resume info in {time.time() - start_time:.2f} seconds.")
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+        else:
+            logging.error(f"Error extracting resume info: {response.status_code}, {response.text}")
+            return None
+            
+    def extract_resume_info(self, system_prompt, user_prompt, json_template, resume_text):
+        start_time = time.time()
+        url = "https://api.together.xyz/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        data = {
+            "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"{user_prompt}\n{json_template}\n{resume_text}\nPlease respond in valid JSON format according to the given template."}
+            ],
+            "max_tokens": None,
+            "temperature": 0.7,
+            "top_p": 0.7,
+            "top_k": 50,
+            "repetition_penalty": 1,
+            "stop": ["<|eot_id|>","<|eom_id|>"]
         }
 
         response = requests.post(url, headers=headers, json=data, verify=False)
