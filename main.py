@@ -2,7 +2,7 @@ import os
 import argparse
 from utils.functions import OpenAIClient, FileProcessor
 from log_helper import setup_logging
-from config import system_prompt, user_prompt, json_template, OPENAI_API_KEY
+from config import system_prompt, user_prompt, json_template, OPENAI_API_KEY, IMAGE_API_KEY
 
 # Set up logging
 setup_logging()
@@ -25,7 +25,7 @@ def main():
         os.makedirs(output_directory)
 
     # Initialize OpenAI Client
-    client = OpenAIClient(OPENAI_API_KEY)
+    client = OpenAIClient(OPENAI_API_KEY,IMAGE_API_KEY)
 
     # Initialize file processor with prompts
     file_processor = FileProcessor(

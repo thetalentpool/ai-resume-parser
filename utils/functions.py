@@ -21,12 +21,15 @@ if platform.system() == "Windows":
         print("pywin32 is not installed. Install it using: pip install pywin32")
 
 class OpenAIClient:
-    def __init__(self, api_key):
+    def __init__(self, api_key, image_api_key):
         start_time = time.time()
         if api_key is None:
             raise ValueError("OpenAI API key is not set.")
+        if image_api_key is None:
+            raise ValueError("image_api_key is not set.")
         self.api_key = api_key
-        self.client = openai.Client(api_key=self.api_key)
+        self.image_api_key = image_api_key
+        self.client = openai.Client(api_key=self.image_api_key)
         logging.info(f"Initialized OpenAIClient in {time.time() - start_time:.2f} seconds.")
 
 
