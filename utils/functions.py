@@ -56,7 +56,7 @@ class OpenAIClient:
             logging.error(f"Error extracting resume info: {response.status_code}, {response.text}")
             return None
             
-    def extract_resume_info(self, system_prompt, user_prompt, json_template, resume_text):
+    def extract_resume_info_together_ai(self, system_prompt, user_prompt, json_template, resume_text):
         start_time = time.time()
         url = "https://api.together.xyz/v1/chat/completions"
         headers = {
@@ -85,6 +85,33 @@ class OpenAIClient:
             logging.error(f"Error extracting resume info: {response.status_code}, {response.text}")
             return None
 
+    def extract_resume_info(self, system_prompt, user_prompt, json_template, resume_text):
+        start_time = time.time()
+        url = "https://api.cerebras.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        data = {
+            "model": "llama-3.3-70b",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"{user_prompt}\n{json_template}\n{resume_text}\nPlease respond in valid JSON format according to the given template."}
+            ],
+            "max_completion_tokens": -1,
+            "temperature": 0.2,
+            "top_p": 1,
+            "seed": 0,
+            "stream": false
+        }
+
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        logging.info(f"Extracted resume info in {time.time() - start_time:.2f} seconds.")
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+        else:
+            logging.error(f"Error extracting resume info: {response.status_code}, {response.text}")
+            return None
 
     def call_gpt4o(self, base64_image, user_prompt, json_template,system_prompt):
         start_time = time.time()
