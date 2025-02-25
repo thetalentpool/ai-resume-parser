@@ -96,13 +96,13 @@ class OpenAIClient:
             "model": "llama-3.3-70b",
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"{user_prompt}\n{json_template}\n{resume_text}\nPlease respond in valid JSON format according to the given template."}
+                {"role": "user", "content": f"{user_prompt}\n Json Template : \n{json_template}\n Resume text : \n{resume_text}\nPlease respond in valid JSON format according to the given template."}
             ],
             "max_completion_tokens": -1,
             "temperature": 0.2,
             "top_p": 1,
             "seed": 0,
-            "stream": false
+            "stream": False
         }
 
         response = requests.post(url, headers=headers, json=data, verify=False)
