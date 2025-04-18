@@ -16,7 +16,7 @@ def setup_logging(logs_directory="logs"):
 
     # Create a unique log file name using uuid
     short_id = uuid.uuid4().hex[:5]
-    log_file = f"parser_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{short_id}.log"
+    log_file = f"parser_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')}_{short_id}.log"
     log_path = os.path.join(logs_directory, log_file)
 
     # Setup log rotation
