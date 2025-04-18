@@ -126,6 +126,10 @@ json_template = {
     ]
 }
 
-OPENAI_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-IMAGE_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+OPENAI_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+IMAGE_API_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 
+# Add these new configurations
+INPUT_DIRECTORY = "input_files"
+OUTPUT_DIRECTORY = "extracted_json"
+PROCESS_TIMEOUT = 10  # seconds
