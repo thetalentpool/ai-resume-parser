@@ -463,7 +463,7 @@ class FileProcessor:
         elif os.name == "posix":  # Linux/macOS
             try:
                 print(f" Converting {doc_path} using LibreOffice...")
-                subprocess.run(["libreoffice", "--headless", "--convert-to", "docx", doc_path], check=True)
+                subprocess.run(["libreoffice", "--headless", "--convert-to", "docx", doc_path, "--outdir", doc_dir], check=True)
                 return docx_path if os.path.exists(docx_path) else None
             except Exception as e:
                 print(f"ERROR: LibreOffice conversion failed for {doc_path} - {e}")
